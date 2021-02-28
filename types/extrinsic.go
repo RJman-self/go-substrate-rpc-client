@@ -38,6 +38,7 @@ const (
 	ExtrinsicVersion2       = 2
 	ExtrinsicVersion3       = 3
 	ExtrinsicVersion4       = 4
+	ExtrinsicVersion5       = 5
 )
 
 // Extrinsic is a piece of Args bundled into a block that expresses something from the "external" (i.e. off-chain)
@@ -56,6 +57,23 @@ type Extrinsic struct {
 func NewExtrinsic(c Call) Extrinsic {
 	return Extrinsic{
 		Version: ExtrinsicVersion4,
+		Method:  c,
+	}
+}
+
+type MultiExtrinsic struct {
+	// Version is the encoded version flag (which encodes the raw transaction version and signing information in one byte)
+	Version byte
+	// Signature is the ExtrinsicSignatureV4, it's presence depends on the Version flag
+	Signature ExtrinsicSignatureV5
+	// Method is the call this extrinsic wraps
+	Method Call
+}
+
+// NewExtrinsic creates a new Extrinsic from the provided Call
+func NewMultiExtrinsic(c Call) MultiExtrinsic {
+	return MultiExtrinsic{
+		Version: ExtrinsicVersion5,
 		Method:  c,
 	}
 }
@@ -119,8 +137,69 @@ func (e Extrinsic) Type() uint8 {
 	return e.Version & ExtrinsicUnmaskVersion
 }
 
-func (e *Extrinsic) MultiSign(signer signature.KeyringPair, o SignatureOptions) error {
-	if e.Type() != ExtrinsicVersion4 {
+// IsSigned returns true if the extrinsic is signed
+func (e MultiExtrinsic) IsSigned() bool {
+	return e.Version&ExtrinsicBitSigned == ExtrinsicBitSigned
+}
+
+// Type returns the raw transaction version (not flagged with signing information)
+func (e MultiExtrinsic) Type() uint8 {
+	return e.Version & ExtrinsicUnmaskVersion
+}
+
+// Sign adds a signature to the extrinsic
+func (e *Extrinsic) Sign(signer signature.KeyringPair, o SignatureOptions) error {
+	if e.Type() != ExtrinsicVersion4 || e.Type() != ExtrinsicVersion5 {
+		return fmt.Errorf("unsupported extrinsic version: %v (isSigned: %v, type: %v)", e.Version, e.IsSigned(), e.Type())
+	}
+
+	mb, err := EncodeToBytes(e.Method)
+	if err != nil {
+		return err
+	}
+
+	era := o.Era
+	if !o.Era.IsMortalEra {
+		era = ExtrinsicEra{IsImmortalEra: true}
+	}
+
+	payload := ExtrinsicPayloadV4{
+		ExtrinsicPayloadV3: ExtrinsicPayloadV3{
+			Method:      mb,
+			Era:         era,
+			Nonce:       o.Nonce,
+			Tip:         o.Tip,
+			SpecVersion: o.SpecVersion,
+			GenesisHash: o.GenesisHash,
+			BlockHash:   o.BlockHash,
+		},
+		TransactionVersion: o.TransactionVersion,
+	}
+
+	signerPubKey := NewAddressFromAccountID(signer.PublicKey)
+
+	sig, err := payload.Sign(signer)
+	if err != nil {
+		return err
+	}
+
+	extSig := ExtrinsicSignatureV4{
+		Signer:    signerPubKey,
+		Signature: MultiSignature{IsSr25519: true, AsSr25519: sig},
+		Era:       era,
+		Nonce:     o.Nonce,
+		Tip:       o.Tip,
+	}
+
+	e.Signature = extSig
+
+	// mark the extrinsic as signed
+	e.Version |= ExtrinsicBitSigned
+
+	return nil
+}
+func (e *MultiExtrinsic) MultiSign(signer signature.KeyringPair, o SignatureOptions) error {
+	if e.Type() != ExtrinsicVersion4 || e.Type() != ExtrinsicVersion5 {
 		return fmt.Errorf("unsupported extrinsic version: %v (isSigned: %v, type: %v)", e.Version, e.IsSigned(), e.Type())
 	}
 
@@ -154,7 +233,7 @@ func (e *Extrinsic) MultiSign(signer signature.KeyringPair, o SignatureOptions) 
 		return err
 	}
 
-	extSig := ExtrinsicSignatureV4{
+	extSig := ExtrinsicSignatureV5{
 		Signer:    signerPubKey,
 		Signature: MultiSignature{IsSr25519: true, AsSr25519: sig},
 		Era:       era,
@@ -185,7 +264,7 @@ func (e *Extrinsic) Decode(decoder scale.Decoder) error {
 
 	// signature
 	if e.IsSigned() {
-		if e.Type() != ExtrinsicVersion4 {
+		if e.Type() != ExtrinsicVersion4 || e.Type() != ExtrinsicVersion5 {
 			return fmt.Errorf("unsupported extrinsic version: %v (isSigned: %v, type: %v)", e.Version, e.IsSigned(),
 				e.Type())
 		}
@@ -206,7 +285,7 @@ func (e *Extrinsic) Decode(decoder scale.Decoder) error {
 }
 
 func (e Extrinsic) Encode(encoder scale.Encoder) error {
-	if e.Type() != ExtrinsicVersion4 {
+	if e.Type() != ExtrinsicVersion4 || e.Type() != ExtrinsicVersion5 {
 		return fmt.Errorf("unsupported extrinsic version: %v (isSigned: %v, type: %v)", e.Version, e.IsSigned(),
 			e.Type())
 	}
