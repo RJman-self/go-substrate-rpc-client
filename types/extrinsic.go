@@ -149,7 +149,7 @@ func (e MultiExtrinsic) Type() uint8 {
 
 // Sign adds a signature to the extrinsic
 func (e *Extrinsic) Sign(signer signature.KeyringPair, o SignatureOptions) error {
-	if e.Type() != ExtrinsicVersion4 || e.Type() != ExtrinsicVersion5 {
+	if e.Type() != ExtrinsicVersion4 && e.Type() != ExtrinsicVersion5 {
 		return fmt.Errorf("unsupported extrinsic version: %v (isSigned: %v, type: %v)", e.Version, e.IsSigned(), e.Type())
 	}
 
@@ -199,7 +199,7 @@ func (e *Extrinsic) Sign(signer signature.KeyringPair, o SignatureOptions) error
 	return nil
 }
 func (e *MultiExtrinsic) MultiSign(signer signature.KeyringPair, o SignatureOptions) error {
-	if e.Type() != ExtrinsicVersion4 || e.Type() != ExtrinsicVersion5 {
+	if e.Type() != ExtrinsicVersion4 && e.Type() != ExtrinsicVersion5 {
 		return fmt.Errorf("unsupported extrinsic version: %v (isSigned: %v, type: %v)", e.Version, e.IsSigned(), e.Type())
 	}
 
@@ -264,7 +264,7 @@ func (e *Extrinsic) Decode(decoder scale.Decoder) error {
 
 	// signature
 	if e.IsSigned() {
-		if e.Type() != ExtrinsicVersion4 || e.Type() != ExtrinsicVersion5 {
+		if e.Type() != ExtrinsicVersion4 && e.Type() != ExtrinsicVersion5 {
 			return fmt.Errorf("unsupported extrinsic version: %v (isSigned: %v, type: %v)", e.Version, e.IsSigned(),
 				e.Type())
 		}
@@ -285,7 +285,7 @@ func (e *Extrinsic) Decode(decoder scale.Decoder) error {
 }
 
 func (e Extrinsic) Encode(encoder scale.Encoder) error {
-	if e.Type() != ExtrinsicVersion4 || e.Type() != ExtrinsicVersion5 {
+	if e.Type() != ExtrinsicVersion4 && e.Type() != ExtrinsicVersion5 {
 		return fmt.Errorf("unsupported extrinsic version: %v (isSigned: %v, type: %v)", e.Version, e.IsSigned(),
 			e.Type())
 	}
