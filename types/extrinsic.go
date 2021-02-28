@@ -51,6 +51,14 @@ type Extrinsic struct {
 	// Method is the call this extrinsic wraps
 	Method Call
 }
+type ExtrinsicReturn struct {
+	// Version is the encoded version flag (which encodes the raw transaction version and signing information in one byte)
+	Version byte
+	// Signature is the ExtrinsicSignatureV4, it's presence depends on the Version flag
+	Signature ExtrinsicReturnSignatureV4
+	// Method is the call this extrinsic wraps
+	Method Call
+}
 
 // NewExtrinsic creates a new Extrinsic from the provided Call
 func NewExtrinsic(c Call) Extrinsic {
