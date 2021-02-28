@@ -198,6 +198,57 @@ func (e *Extrinsic) Sign(signer signature.KeyringPair, o SignatureOptions) error
 
 	return nil
 }
+
+func (e *Extrinsic) MultiSign(signer signature.KeyringPair, o SignatureOptions) error {
+	if e.Type() != ExtrinsicVersion4 && e.Type() != ExtrinsicVersion5 {
+		return fmt.Errorf("unsupported extrinsic version: %v (isSigned: %v, type: %v)", e.Version, e.IsSigned(), e.Type())
+	}
+
+	mb, err := EncodeToBytes(e.Method)
+	if err != nil {
+		return err
+	}
+
+	era := o.Era
+	if !o.Era.IsMortalEra {
+		era = ExtrinsicEra{IsImmortalEra: true}
+	}
+
+	payload := ExtrinsicPayloadV4{
+		ExtrinsicPayloadV3: ExtrinsicPayloadV3{
+			Method:      mb,
+			Era:         era,
+			Nonce:       o.Nonce,
+			Tip:         o.Tip,
+			SpecVersion: o.SpecVersion,
+			GenesisHash: o.GenesisHash,
+			BlockHash:   o.BlockHash,
+		},
+		TransactionVersion: o.TransactionVersion,
+	}
+
+	signerPubKey := NewMultiAddressFromAccountID(signer.PublicKey)
+
+	sig, err := payload.Sign(signer)
+	if err != nil {
+		return err
+	}
+
+	extSig := ExtrinsicSignatureV4{
+		Signer:    signerPubKey,
+		Signature: MultiSignature{IsSr25519: true, AsSr25519: sig},
+		Era:       era,
+		Nonce:     o.Nonce,
+		Tip:       o.Tip,
+	}
+
+	e.Signature = extSig
+
+	// mark the extrinsic as signed
+	e.Version |= ExtrinsicBitSigned
+
+	return nil
+}
 func (e *MultiExtrinsic) MultiSign(signer signature.KeyringPair, o SignatureOptions) error {
 	if e.Type() != ExtrinsicVersion4 && e.Type() != ExtrinsicVersion5 {
 		return fmt.Errorf("unsupported extrinsic version: %v (isSigned: %v, type: %v)", e.Version, e.IsSigned(), e.Type())
