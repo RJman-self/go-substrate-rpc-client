@@ -61,6 +61,14 @@ func NewExtrinsic(c Call) Extrinsic {
 	}
 }
 
+// NewExtrinsic creates a new Extrinsic from the provided Call
+func NewReturnExtrinsic() Extrinsic {
+	return Extrinsic{
+		Signature: ExtrinsicSignatureV4{Signer: Address{}},
+		Version:   ExtrinsicVersion4,
+	}
+}
+
 type MultiExtrinsic struct {
 	// Version is the encoded version flag (which encodes the raw transaction version and signing information in one byte)
 	Version byte

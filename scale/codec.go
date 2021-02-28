@@ -479,18 +479,7 @@ func (pd Decoder) DecodeIntoReflectValue(target reflect.Value) error {
 	case reflect.Func:
 		fallthrough
 	case reflect.Interface:
-		for i := 0; i < target.NumField(); i++ {
-			ft := target.Type().Field(i)
-			tv, ok := ft.Tag.Lookup("scale")
-			if ok && tv == "-" {
-				continue
-			}
-			err := pd.DecodeIntoReflectValue(target.Field(i))
-			if err != nil {
-				return fmt.Errorf("type %s does not support Decodeable interface and could not be "+
-					"decoded field by field, error: %v", ptrType, err)
-			}
-		}
+		fallthrough
 	case reflect.Map:
 		fallthrough
 	case reflect.UnsafePointer:
